@@ -1,0 +1,22 @@
+# Virtual environment
+HVC/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Generated videos
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Model files
+models/
+*.pth
+*.pt
+*.onnx
+
+# IDE
+.vscode/
+.idea/
