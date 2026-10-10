@@ -2,31 +2,111 @@ import cv2
 
 from human_segmenter import HumanSegmenter
 from video_background import VideoBackground
-from gesture_controller import GestureController
+
+from gesture.hand_detector import HandDetector
+from gesture.gesture_recognizer import GestureRecognizer
+from gesture.cut_controller import CutController
+from gesture.interaction_controller import InteractionController
+from gesture.gesture_overlay import GestureOverlay
+from gesture.grid_controller import GridController
+from gesture.draw_controller import DrawController
 
 
 def main():
+
+    # =====================================================
+    # WEBCAM
+    # =====================================================
 
     camera = cv2.VideoCapture(0)
 
     if not camera.isOpened():
 
-        print("Error: Could not open webcam.")
+        print(
+            "Error: Could not open webcam."
+        )
+
         return
 
-    segmenter = HumanSegmenter()
+    # =====================================================
+    # HUMAN SEGMENTER
+    # =====================================================
+
+    segmenter = HumanSegmenter(
+        "models/selfie_segmenter.tflite"
+    )
+
+    # =====================================================
+    # VIDEO BACKGROUND
+    # =====================================================
 
     background = VideoBackground(
         "output_trimmed.mp4"
     )
 
-    gesture = GestureController()
+    # =====================================================
+    # HAND DETECTOR
+    # =====================================================
+
+    hand_detector = HandDetector(
+        "models/hand_landmarker.task"
+    )
+
+    # =====================================================
+    # GESTURE RECOGNIZER
+    # =====================================================
+
+    gesture_recognizer = (
+        GestureRecognizer()
+    )
+
+    # =====================================================
+    # CUT CONTROLLER
+    # =====================================================
+
+    cut_controller = CutController()
+
+    # =====================================================
+    # GRID CONTROLLER
+    # =====================================================
+
+    grid_controller = GridController()
+
+    # =====================================================
+    # INTERACTION CONTROLLER
+    # =====================================================
+
+    draw_controller = DrawController()
+
+    interaction_controller = (
+        InteractionController(
+            hand_detector,
+            gesture_recognizer,
+            cut_controller,
+            grid_controller,
+            draw_controller
+        )
+    )
+
+    # =====================================================
+    # OVERLAY
+    # =====================================================
+
+    overlay = GestureOverlay(
+        cut_controller,
+        grid_controller,
+        draw_controller
+    )
+
+    # =====================================================
+    # MAIN LOOP
+    # =====================================================
 
     while True:
 
-        # =================================================
-        # 1. WEBCAM
-        # =================================================
+        # -------------------------------------------------
+        # READ WEBCAM
+        # -------------------------------------------------
 
         ret, frame = camera.read()
 
@@ -38,28 +118,39 @@ def main():
 
             break
 
-        # Mirror webcam
+        # -------------------------------------------------
+        # MIRROR WEBCAM
+        # -------------------------------------------------
+
         frame = cv2.flip(
             frame,
             1
         )
 
-        height, width = frame.shape[:2]
+        height, width = (
+            frame.shape[:2]
+        )
 
         # =================================================
-        # 2. HAND / GESTURE DETECTION
+        # PROCESS HAND
         # =================================================
 
-        gesture.process_hand(frame)
+        hand_result = (
+            interaction_controller.process_hand(
+                frame
+            )
+        )
 
         # =================================================
-        # 3. HUMAN SEGMENTATION
+        # HUMAN MASK
         # =================================================
 
-        mask = segmenter.get_mask(frame)
+        mask = segmenter.get_mask(
+            frame
+        )
 
         # =================================================
-        # 4. CURRENT VIDEO FRAME
+        # VIDEO FRAME
         # =================================================
 
         video_frame = background.get_frame(
@@ -76,31 +167,55 @@ def main():
             break
 
         # =================================================
-        # 5. LIVE CUT COMPOSITION
-        #
-        # Human = highest
-        # Cut video = middle
-        # Video = lowest
+        # CUT PART AS BACKGROUND (if the button was used)
         # =================================================
 
-        result = gesture.apply_cut(
+        video_frame = (
+            cut_controller.apply_background(
+                video_frame
+            )
+        )
+
+        # =================================================
+        # APPLY CUT + HUMAN
+        # =================================================
+
+        result = cut_controller.apply_cut(
             video_frame,
             frame,
             mask
         )
 
         # =================================================
-        # 6. DRAW GLOWING RECTANGLE
+        # GRID
         #
-        # Highest visual overlay
+        # Drawn AFTER apply_cut so grid lines never get
+        # copied into the floating cut.
         # =================================================
 
-        result = gesture.draw_overlay(
+        grid_controller.draw(
             result
         )
 
         # =================================================
-        # 7. DISPLAY
+        # WRITING (index finger) - on top of the picture
+        # =================================================
+
+        result = draw_controller.apply(
+            result
+        )
+
+        # =================================================
+        # UI OVERLAY
+        # =================================================
+
+        result = overlay.draw(
+            result,
+            hand_result
+        )
+
+        # =================================================
+        # DISPLAY
         # =================================================
 
         cv2.imshow(
@@ -108,17 +223,31 @@ def main():
             result
         )
 
-        key = cv2.waitKey(1) & 0xFF
+        # =================================================
+        # KEYBOARD
+        # =================================================
 
+        key = (
+            cv2.waitKey(1)
+            &
+            0xFF
+        )
+
+        # -------------------------------------------------
         # ESC
+        # -------------------------------------------------
+
         if key == 27:
 
             break
 
-        # R = reset cut
+        # -------------------------------------------------
+        # RESET
+        # -------------------------------------------------
+
         if key == ord("r"):
 
-            gesture.reset()
+            interaction_controller.reset()
 
     # =====================================================
     # CLEANUP
@@ -130,7 +259,7 @@ def main():
 
     segmenter.close()
 
-    gesture.close()
+    hand_detector.close()
 
     cv2.destroyAllWindows()
 

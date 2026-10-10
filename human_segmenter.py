@@ -13,6 +13,7 @@ class HumanSegmenter:
         model_path="models/selfie_segmenter.tflite",
         threshold=0.5
     ):
+
         self.threshold = threshold
 
         base_options = python.BaseOptions(
@@ -21,38 +22,69 @@ class HumanSegmenter:
 
         options = vision.ImageSegmenterOptions(
             base_options=base_options,
-            output_category_mask=True
+            output_confidence_masks=True
         )
 
-        self.segmenter = vision.ImageSegmenter.create_from_options(
-            options
+        self.segmenter = (
+            vision.ImageSegmenter.create_from_options(
+                options
+            )
         )
 
     def get_mask(self, frame):
+
+        # -------------------------------------------------
+        # Convert BGR -> RGB
+        # -------------------------------------------------
 
         rgb_frame = cv2.cvtColor(
             frame,
             cv2.COLOR_BGR2RGB
         )
 
+        # -------------------------------------------------
+        # Create MediaPipe image
+        # -------------------------------------------------
+
         mp_image = mp.Image(
             image_format=mp.ImageFormat.SRGB,
             data=rgb_frame
         )
 
-        result = self.segmenter.segment(mp_image)
+        # -------------------------------------------------
+        # Run segmentation
+        # -------------------------------------------------
 
-        category_mask = result.category_mask.numpy_view()
+        result = self.segmenter.segment(
+            mp_image
+        )
+
+        # -------------------------------------------------
+        # Get person confidence mask
+        # -------------------------------------------------
+
+        person_confidence = (
+            result.confidence_masks[0].numpy_view()
+        )
+
+        # -------------------------------------------------
+        # Convert confidence -> binary mask
+        #
+        # 255 = HUMAN
+        # 0   = BACKGROUND
+        # -------------------------------------------------
 
         mask = (
-            category_mask <= self.threshold
+            person_confidence >= self.threshold
         ).astype(np.uint8) * 255
 
         return mask
 
     def extract_person(self, frame):
 
-        mask = self.get_mask(frame)
+        mask = self.get_mask(
+            frame
+        )
 
         person = cv2.bitwise_and(
             frame,
@@ -64,7 +96,9 @@ class HumanSegmenter:
 
     def get_person_with_alpha(self, frame):
 
-        mask = self.get_mask(frame)
+        mask = self.get_mask(
+            frame
+        )
 
         bgra = cv2.cvtColor(
             frame,
