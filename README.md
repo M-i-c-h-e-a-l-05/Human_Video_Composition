@@ -1,533 +1,179 @@
 # Human Video Composition
 
-A real-time computer vision project that places a segmented human from a webcam into a playing video background and allows the user to interact with the video using hand gestures.
-
-The project combines **human segmentation, hand gesture recognition, real-time video compositing, and interactive video-region manipulation** using Python, OpenCV, and MediaPipe.
+A real-time computer vision project that combines **human segmentation, hand gesture recognition, and video compositing** to create an interactive video composition system. Users can manipulate selected video regions using hand gestures while keeping the segmented human in the foreground.
 
 ## Overview
 
-The system uses a webcam to detect the user's hand and body while a video plays in the background.
+Human Video Composition uses a webcam to track hand gestures and segment the person in the scene. A separate video plays as the background, while a selected region of the camera feed can be cut out, moved, resized, and positioned interactively.
 
-The user's real background is removed using human segmentation, leaving only the person. The person is then composited over the playing video.
-
-The system also allows the user to select a rectangular portion of the video using a hand gesture, cut that region out, and move it to another location using a fist gesture.
-
-The cut region is not a frozen image. It continues to display the corresponding portion of the **currently playing video**, allowing the video content inside the moved region to continue changing normally.
-
-### Layer Priority
-
-The final composition follows this order:
-
-```text
-Human
-  ↓
-Movable Video Region
-  ↓
-Video Background
-```
-
-The human always has the highest visual priority.
-
----
+The system combines these visual layers to produce a dynamic composition without requiring a green screen or traditional editing tools.
 
 ## Features
 
-### Human Segmentation
-
-* Captures the user through a webcam.
-* Detects and separates the human from the real webcam background.
-* Uses MediaPipe Image Segmentation.
-* Places the segmented human over the background video.
-
-### Hand Gesture Control
-
-The system uses MediaPipe Hand Landmarker to recognize hand gestures.
-
-Current gestures:
-
-| Gesture        | Action                            |
-| -------------- | --------------------------------- |
-| ✌️ Two fingers | Create a rectangular selection    |
-| ✊ Fist         | Grab and move the selected region |
-| Open hand      | Release the selected region       |
-| `R`            | Reset the current cut             |
-| `ESC`          | Exit the application              |
-
-### Interactive Video Cutting
-
-The user can:
-
-1. Make a ✌️ gesture.
-2. Move the index finger to draw a rectangle.
-3. Release the gesture to select the region.
-4. Place the hand inside the selected region.
-5. Make a fist to grab it.
-6. Move the fist to move the selected video region.
-7. Open the hand to release it.
-
-The original location becomes black while the selected video region can be moved elsewhere.
-
-### Live Video Region
-
-The selected region is taken from the **current video frame on every iteration**.
-
-Therefore, the cut region continues playing the video instead of becoming a static screenshot.
-
-For example, if a moving object is present in the selected area, its motion continues while the region is being moved.
-
----
-
-## System Architecture
-
-```text
-                    Webcam
-                       │
-                       ▼
-              ┌─────────────────┐
-              │ Hand Detection  │
-              │ MediaPipe       │
-              └────────┬────────┘
-                       │
-                       │ Gestures
-                       ▼
-              ┌─────────────────┐
-              │ Gesture Control │
-              └────────┬────────┘
-                       │
-                       │
-Webcam ────────────────┼──────────────► Human Segmentation
-                       │                         │
-                       │                         ▼
-                       │                  Human Foreground
-                       │
-Video File ────────────────────────────► Video Background
-                                                 │
-                                                 ▼
-                                      Movable Video Region
-                                                 │
-                                                 ▼
-                                         Final Composition
-                                                 │
-                                                 ▼
-                                      ┌──────────────────┐
-                                      │ Human            │
-                                      │ Cut Video Region │
-                                      │ Video Background │
-                                      └──────────────────┘
-```
-
----
+- **Real-time Human Segmentation:** Separates the person from the surrounding scene.
+- **Hand Gesture Recognition:** Uses hand landmarks to control video regions.
+- **Interactive Video Cutting:** Draw a rectangular region using hand gestures.
+- **Move and Resize:** Reposition and adjust the selected video region.
+- **Layered Compositing:** Keeps the segmented human in the foreground, the selected video region in the middle, and the background video at the bottom.
+- **Grid Mode:** Supports grid-based region selection.
+- **Region Locking:** Prevents accidental movement of a selected region.
+- **Delete and Restore:** Provides a control for removing or restoring the selected region.
+- **Video Background:** Plays a background video behind the person and the selected region.
 
 ## Technologies Used
 
-* **Python 3.12**
-* **OpenCV**
-* **MediaPipe Tasks**
+- Python
+- OpenCV
+- MediaPipe
+- NumPy
+- TensorFlow Lite
+- Computer Vision
+- Image and Video Processing
 
-  * Image Segmenter
-  * Hand Landmarker
-* **NumPy**
-* **OpenCV VideoCapture**
-* **TensorFlow Lite models through MediaPipe**
-
----
-
-## Project Structure
+## Project Architecture
 
 ```text
-human_video_composition/
-│
+Human_Video_Composition/
 ├── main.py
-├── human_segmenter.py
-├── gesture_controller.py
-├── video_background.py
-│
+├── gesture/
+│   └── Hand gesture recognition modules
+├── human/
+│   └── Human segmentation modules
+├── video/
+│   └── Video background and composition modules
 ├── models/
-│   ├── selfie_segmenter.tflite
-│   └── hand_landmarker.task
-│
-├── output_trimmed.mp4
-│
-├── HVC/
-│   └── Python virtual environment
-│
+│   ├── hand_landmarker.task
+│   └── selfie_segmenter.tflite
+├── assets/
+│   └── videos/
+│       └── output_trimmed.mp4
+├── .gitignore
 └── README.md
 ```
 
-### File Description
+*Note: The directory descriptions are illustrative. Keep the file names and folder structure consistent with your actual repository.*
 
-#### `main.py`
+## How It Works
 
-Main application loop.
+The system processes the webcam feed and background video through several stages:
 
-Responsible for:
+1. **Camera Input:** Captures live frames from the webcam.
+2. **Hand Tracking:** Detects hand landmarks and identifies gestures.
+3. **Human Segmentation:** Separates the person from the original camera frame.
+4. **Region Selection:** Allows the user to select a region of the camera feed.
+5. **Region Manipulation:** Supports moving, resizing, locking, and deleting the selected region.
+6. **Video Compositing:** Combines the background video, selected video region, and segmented person into the final output.
 
-* Opening the webcam.
-* Reading video frames.
-* Running hand detection.
-* Running human segmentation.
-* Getting background video frames.
-* Creating the final composition.
-* Displaying the output.
+### Composition Layer Order
 
-#### `human_segmenter.py`
+1. **Foreground:** Segmented human.
+2. **Middle layer:** Selected video region.
+3. **Background:** Looping background video.
 
-Handles human segmentation using MediaPipe Image Segmenter.
+This ordering allows the person to remain visible in front of the selected video region.
 
-It generates a mask identifying the human and uses that mask to separate the person from the webcam background.
+## Gesture Controls
 
-#### `gesture_controller.py`
+| Gesture / Control | Action |
+|---|---|
+| Index and middle fingers extended (✌️) | Draw a rectangular cut region |
+| Closed fist | Grab and move the region when the hand is inside it |
+| Thumb and index finger | Resize the region while grabbed |
+| Open hand | Release the region |
+| Top-left fix control | Lock the region |
+| Top-right trash control | Delete or restore the region |
+| Top-center Grid button | Enable grid-based selection |
 
-Handles:
+Grid Mode is intended to disable freehand cutting and free scaling while grid selection is active.
 
-* Hand landmark detection.
-* ✌️ gesture detection.
-* ✊ fist detection.
-* Rectangle creation.
-* Rectangle selection.
-* Cut-region movement.
-* Live video-region extraction.
-* Glowing rectangle visualization.
+## Requirements
 
-#### `video_background.py`
-
-Handles the background video.
-
-Responsibilities include:
-
-* Opening the video.
-* Reading frames.
-* Resizing frames to webcam resolution.
-* Restarting the video when it reaches the end.
-
----
+- Python 3.10 or a compatible Python version
+- A webcam
+- OpenCV
+- MediaPipe
+- NumPy
+- Required model files
+- A background video asset
 
 ## Installation
 
-### 1. Clone the Repository
+### 1. Clone the repository
 
 ```bash
-git clone <your-repository-url>
-cd human_video_composition
+git clone https://github.com/M-i-c-h-e-a-l-05/Human_Video_Composition.git
+cd Human_Video_Composition
 ```
 
-### 2. Create Virtual Environment
+### 2. Create a virtual environment
 
 ```bash
-python3.12 -m venv HVC
-```
-
-Activate it:
-
-```bash
+python3 -m venv HVC
 source HVC/bin/activate
 ```
 
-### 3. Install Dependencies
+### 3. Install dependencies
+
+If the repository contains a `requirements.txt` file:
 
 ```bash
-pip install opencv-python numpy mediapipe
+pip install -r requirements.txt
 ```
 
----
-
-## MediaPipe Models
-
-The project requires two MediaPipe model files.
-
-### Human Segmentation Model
-
-Place the segmentation model inside:
-
-```text
-models/selfie_segmenter.tflite
-```
-
-### Hand Landmarker Model
-
-Place the hand model inside:
-
-```text
-models/hand_landmarker.task
-```
-
-The `models` directory should therefore contain:
-
-```text
-models/
-├── selfie_segmenter.tflite
-└── hand_landmarker.task
-```
-
----
-
-## Background Video
-
-Place the background video in the project directory:
-
-```text
-output_trimmed.mp4
-```
-
-The current application expects:
-
-```python
-background = VideoBackground(
-    "output_trimmed.mp4"
-)
-```
-
-To use another video, change the path in `main.py`.
-
----
-
-## Running the Project
-
-Activate the virtual environment:
+Otherwise, install the dependencies required by the current implementation. For example:
 
 ```bash
-source HVC/bin/activate
+pip install opencv-python mediapipe numpy
 ```
 
-Run:
+Additional dependencies may be required by the installed MediaPipe version and the project's implementation.
+
+### 4. Check the required assets
+
+Ensure the following files are available at their expected locations:
+
+- `models/hand_landmarker.task`
+- `models/selfie_segmenter.tflite`
+- `assets/videos/output_trimmed.mp4`
+
+Model files and video assets must be present locally if they are not included in the repository.
+
+### 5. Run the project
 
 ```bash
 python main.py
 ```
 
-A window named:
+Allow camera access if prompted.
 
-```text
-Human in Video
-```
+## Performance Considerations
 
-will open.
-
----
-
-## How to Use
-
-### Step 1 — Enter the Scene
-
-Stand in front of the webcam.
-
-Your real background will be removed and replaced with the selected video.
-
-```text
-Webcam
-   ↓
-Human segmentation
-   ↓
-Your body + video background
-```
-
-### Step 2 — Draw a Cut Region
-
-Make a:
-
-```text
-✌️
-```
-
-gesture.
-
-Move your index finger to define the rectangular region.
-
-The system converts the freehand movement into a straight-edged rectangle.
-
-### Step 3 — Select the Region
-
-Stop making the ✌️ gesture.
-
-The rectangle becomes selected.
-
-### Step 4 — Grab the Region
-
-Move your hand inside the selected rectangle.
-
-Make a:
-
-```text
-✊
-```
-
-fist.
-
-The selected video region is now grabbed.
-
-### Step 5 — Move the Region
-
-Move your fist.
-
-The selected region follows your hand.
-
-The original location becomes black.
-
-### Step 6 — Release
-
-Open your hand.
-
-The video region is released at its current location.
-
-The video inside the region continues playing.
-
----
-
-## Important Rendering Rule
-
-The project intentionally maintains this layer priority:
-
-```text
-┌─────────────────────────────┐
-│        HUMAN                │  ← Highest
-├─────────────────────────────┤
-│    MOVABLE VIDEO CUT        │
-├─────────────────────────────┤
-│    VIDEO BACKGROUND         │  ← Lowest
-└─────────────────────────────┘
-```
-
-This means that if the movable video region passes over the user's body, the human remains visible.
-
-The cut region cannot visually replace the segmented human.
-
----
-
-## Interaction Logic
-
-### Rectangle Creation
-
-```text
-✌️ detected
-     ↓
-Start point = index fingertip
-     ↓
-Track index fingertip
-     ↓
-Create straight rectangle
-     ↓
-Release ✌️
-     ↓
-Rectangle selected
-```
-
-### Cut and Move
-
-```text
-Hand inside rectangle
-        ↓
-      ✊ Fist
-        ↓
-    Grab region
-        ↓
- Move hand/fist
-        ↓
-Move video region
-        ↓
- Open hand
-        ↓
- Release region
-```
-
-### Invalid Grab
-
-A fist outside the selected rectangle does nothing.
-
-```text
-✊ outside rectangle
-        ↓
-     No action
-```
-
-This prevents accidental movement of the selected region.
-
----
-
-## Real-Time Video Cutting
-
-The project does not permanently extract a static image from the video.
-
-Instead, the source rectangle is remembered:
-
-```text
-Source rectangle
-       ↓
-Current video frame
-       ↓
-Extract region
-       ↓
-Place at current destination
-```
-
-This process happens continuously.
-
-Therefore:
-
-```text
-Frame 1 → extract video region
-Frame 2 → extract new video region
-Frame 3 → extract new video region
-Frame 4 → extract new video region
-...
-```
-
-The content inside the movable region continues to update with the video.
-
----
-
-## Controls
-
-| Input     | Function                  |
-| --------- | ------------------------- |
-| ✌️        | Draw/select video region  |
-| ✊         | Grab/move selected region |
-| Open hand | Release region            |
-| `R`       | Reset cut                 |
-| `ESC`     | Exit                      |
-
----
-
-## Current Limitations
-
-* Human segmentation quality depends on lighting and camera conditions.
-* Hand gesture detection can become less reliable when the hand is heavily rotated or occluded.
-* The current finger-state detection uses landmark positions and is optimized for the intended gestures.
-* Only one hand is currently tracked.
-* The current implementation supports one active movable video region.
-* The selected source region remains associated with its original location in the background video.
-* The original cut location is currently represented as a black region.
-
----
+- Performance depends on webcam resolution, CPU capability, and the segmentation model.
+- Real-time processing may be slower on systems without a dedicated GPU.
+- Lowering the processing resolution can help improve performance.
+- Accurate hand tracking and stable segmentation are important for smooth interactions.
 
 ## Future Improvements
 
-Possible future extensions include:
+- Improve segmentation stability and reduce flickering.
+- Refine gesture recognition and region manipulation.
+- Add more flexible region shapes and composition options.
+- Improve grid-based selection and interaction feedback.
+- Optimize processing speed for CPU-only systems.
+- Support saving and exporting the final composition.
 
-* Multiple simultaneous cut regions.
-* More accurate hand gesture recognition.
-* Smooth gesture tracking.
-* Edge feathering around the cut region.
-* Adjustable cut-region size.
-* Rotation and scaling of cut regions.
-* Multiple movable video objects.
-* Gesture-controlled video playback.
-* Play/pause using hand gestures.
-* Video seeking using gestures.
-* Volume control using gestures.
-* Switching between multiple background videos.
-* Improved human segmentation around hair and hands.
-* Temporal smoothing for more stable segmentation.
-* GPU acceleration where available.
-* More advanced compositing effects.
+## Applications
 
----
+- Interactive video editing
+- Gesture-controlled visual effects
+- Real-time video compositing
+- Computer vision demonstrations
+- Human-computer interaction
 
-## Project Goal
+## Author
 
-The goal of **Human Video Composition** is to create an interactive real-time video environment where a person can become part of a digital scene and manipulate portions of that scene using natural hand gestures.
+**Micheal George Leveiro**
 
-The project combines:
+Computer Science and Engineering — Artificial Intelligence and Machine Learning
 
-**Computer Vision + Human Segmentation + Gesture Recognition + Real-Time Video Processing + Interactive Compositing**
-
-into a single real-time application.
+GitHub: [M-i-c-h-e-a-l-05](https://github.com/M-i-c-h-e-a-l-05)
